@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>WebAI 扩展 — 视觉预览</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --text: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --accent-soft: #eff6ff;
+    --card-bg: #ffffff;
+    --card-border: #e5e7eb;
+    --shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:Georgia,"Times New Roman",serif; background:var(--bg); color:var(--text); line-height:1.75; }
+
+  .topbar {
+    background:#000; color:#fff; padding:12px 40px;
+    font-family:-apple-system,sans-serif; font-size:13px;
+    display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+    position:sticky; top:0; z-index:100;
+  }
+  .topbar b { letter-spacing:2px; }
+  .topbar .grow { flex:1; }
+  .topbar button {
+    background:var(--accent); color:#fff; border:none;
+    border-radius:6px; padding:7px 12px; font-size:13px;
+    font-family:inherit; cursor:pointer;
+  }
+  .topbar button.ghost { background:#222; border:1px solid #444; }
+  .topbar button:hover { filter:brightness(1.1); }
+
+  article { max-width:720px; margin:40px auto; padding:0 24px; }
+  h1 { font-size:36px; line-height:1.2; margin:0 0 12px; }
+  .meta { color:var(--muted); font-family:-apple-system,sans-serif; font-size:13px; margin-bottom:28px; }
+  article p { margin:0 0 20px; font-size:18px; }
+
+  /* AI card */
+  .ai-card {
+    font-family:-apple-system,sans-serif;
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-left:3px solid var(--accent);
+    border-radius:10px;
+    padding:16px 18px;
+    margin:16px 0 24px;
+    box-shadow:var(--shadow);
+    font-size:15px; line-height:1.65;
+    animation:slideIn 220ms ease-out;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-4px);} to{opacity:1;transform:translateY(0);} }
+  .ai-card .head {
+    display:flex; align-items:center; gap:8px;
+    font-size:12px; color:var(--muted);
+    margin-bottom:10px; text-transform:uppercase; letter-spacing:0.6px;
+  }
+  .ai-card .head .badge {
+    background:var(--accent-soft); color:var(--accent);
+    padding:2px 8px; border-radius:4px; font-weight:600;
+    letter-spacing:0; text-transform:none; font-size:12px;
+  }
+  .ai-card .head .spacer { flex:1; }
+  .ai-card .head button {
+    border:none; background:transparent; color:var(--muted);
+    cursor:pointer; padding:2px 6px; border-radius:4px; font-size:12px;
+  }
+  .ai-card .head button:hover { background:#f3f4f6; color:var(--text); }
+  .ai-card .body { color:var(--text); white-space:pre-wrap; }
+  .ai-card .body .cursor {
+    display:inline-block; width:8px; height:16px;
+    background:var(--accent); margin-left:2px; vertical-align:-3px;
+    animation:blink 1s infinite;
+  }
+  @keyframes blink { 50% { opacity:0; } }
+  .ai-card .foot {
+    margin-top:10px; font-size:12px; color:var(--muted);
+    display:flex; gap:14px;
+  }
+
+  /* Selection bubble — floats to the right of selection, vertical */
+  .sel-bubble {
+    position:absolute;
+    background:#111; color:#fff;
+    border-radius:10px;
+    padding:6px;
+    display:flex; flex-direction:column; gap:2px;
+    width:200px;
+    font-family:-apple-system,sans-serif; font-size:13px;
+    box-shadow:0 8px 28px rgba(0,0,0,0.25);
+    z-index:999;
+    opacity:0; pointer-events:none;
+    transition:opacity 140ms;
+  }
+  .sel-bubble.show { opacity:1; pointer-events:auto; }
+  .sel-bubble::before {
+    content:""; position:absolute; left:-5px; top:16px;
+    transform:rotate(45deg);
+    width:10px; height:10px; background:#111;
+  }
+  .sel-bubble button {
+    background:transparent; color:#fff; border:none;
+    padding:7px 10px; border-radius:6px; cursor:pointer;
+    font-size:13px; font-family:inherit;
+    display:flex; align-items:center; gap:8px;
+    white-space:nowrap; width:100%;
+    text-align:left;
+  }
+  .sel-bubble button:hover { background:#333; }
+  .sel-bubble button .title { flex:1; }
+  .sel-bubble button .sc {
+    color:#9ca3af; font-size:11px;
+    font-family:ui-monospace,Menlo,monospace;
+  }
+  .sel-bubble .star { color:#fcd34d; }
+  .sel-bubble .more {
+    color:#9ca3af; font-size:12px;
+    border-top:1px solid #333; margin-top:2px; padding-top:8px;
+  }
+
+  .note {
+    background:#fffbeb; border:1px solid #fde68a;
+    border-radius:8px; padding:10px 14px; margin:20px auto 0;
+    max-width:720px; font-family:-apple-system,sans-serif; font-size:13px;
+    color:#713f12;
+  }
+
+  /* Modal */
+  .mask {
+    position:fixed; inset:0; background:rgba(0,0,0,0.4);
+    display:none; align-items:flex-start; justify-content:center;
+    z-index:200; padding:40px 20px; overflow:auto;
+  }
+  .mask.show { display:flex; }
+  .modal {
+    background:#fff; border-radius:14px;
+    width:100%; max-width:760px;
+    font-family:-apple-system,sans-serif;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    overflow:hidden;
+  }
+  .modal header {
+    padding:16px 20px; border-bottom:1px solid #eee;
+    display:flex; align-items:center; gap:12px;
+  }
+  .modal header h2 { margin:0; font-size:17px; }
+  .modal header .grow { flex:1; }
+  .modal header button {
+    background:#f3f4f6; color:#111; border:none;
+    padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px;
+  }
+  .modal header button.primary { background:var(--accent); color:#fff; }
+  .modal header button:hover { filter:brightness(0.95); }
+  .modal .list { max-height:58vh; overflow:auto; padding:8px 20px 20px; }
+  .prompt-row {
+    display:grid;
+    grid-template-columns: 40px 120px 1fr 48px 36px 36px;
+    gap:10px; align-items:center;
+    padding:10px 0; border-bottom:1px solid #f3f4f6;
+    font-size:13px;
+  }
+  .prompt-row.head { font-weight:600; color:var(--muted); border-bottom:2px solid #e5e7eb; }
+  .prompt-row input[type=text], .prompt-row textarea {
+    width:100%; padding:6px 8px; border:1px solid #e5e7eb;
+    border-radius:6px; font-size:13px; font-family:inherit;
+    resize:vertical;
+  }
+  .prompt-row textarea { min-height:32px; line-height:1.4; }
+  .prompt-row .sc-input { font-family:ui-monospace,Menlo,monospace; }
+  .prompt-row .star-btn {
+    background:none; border:none; font-size:18px; cursor:pointer;
+    color:#d1d5db;
+  }
+  .prompt-row .star-btn.on { color:#fbbf24; }
+  .prompt-row .del {
+    background:#fee2e2; color:#b91c1c; border:none;
+    border-radius:6px; padding:6px 8px; cursor:pointer; font-size:13px;
+  }
+  .prompt-row .drag { color:#9ca3af; text-align:center; cursor:grab; user-select:none; }
+  .modal footer {
+    padding:14px 20px; border-top:1px solid #eee;
+    display:flex; gap:10px; justify-content:space-between; background:#fafafa;
+  }
+  .modal footer .reset { background:transparent; color:var(--muted); border:none; cursor:pointer; font-size:12px; }
+  .modal footer .add { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px; }
+  .modal footer .add:hover { filter:brightness(1.1); }
+  .modal footer .done { background:#111; color:#fff; border:none; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <b>THE WALL STREET JOURNAL</b>
+  <span style="color:#aaa">· WebAI 视觉预览</span>
+  <span class="grow"></span>
+  <button id="manageBtn">⚙︎ 管理提示词</button>
+  <button class="ghost" id="resetBtn">重置为默认</button>
+</div>
+
+<div class="note">
+  <b>交互方式：</b><br>
+  ① 在下方文章里<b>用鼠标选中任意文字</b> → 选区上方自动弹出黑色气泡工具条 → 点里面的提示词按钮 → AI 卡片插到该段落下方（流式模拟）<br>
+  ② 点顶栏 <b>⚙︎ 管理提示词</b> 可以增删改提示词、设置默认（★）、调整顺序<br>
+  自定义的提示词保存在浏览器本地（localStorage），刷新不丢。正式扩展里会保存在 chrome.storage。
+</div>
+
+<div class="sel-bubble" id="bubble"></div>
+
+<article id="art">
+  <h1>Fed Officials Signal Pause on Rate Cuts Amid Sticky Inflation</h1>
+  <div class="meta">By Nick Timiraos · Updated April 21, 2026</div>
+
+  <p>Federal Reserve officials signaled they are likely to hold interest rates steady at their upcoming meeting, as recent inflation data suggests price pressures are proving more persistent than policymakers had hoped. The shift in tone marks a departure from earlier guidance that had hinted at additional easing later this year.</p>
+
+  <p>Speaking at a conference in Chicago on Monday, several regional Fed presidents emphasized that the "last mile" of disinflation — bringing price growth sustainably back to the central bank's 2% target — may require keeping policy restrictive for longer. Markets responded by trimming bets on near-term rate cuts, with the two-year Treasury yield climbing to a four-month high.</p>
+
+  <p>The hawkish pivot comes as consumer prices rose 3.1% in March from a year earlier, above economists' forecasts, while the labor market has remained resilient. Fed Chair Jerome Powell is scheduled to deliver a speech on Wednesday that traders will parse for further clues on the central bank's trajectory.</p>
+
+  <p>Critics of the Fed's approach argue that maintaining elevated rates risks tipping the economy into recession, particularly as small businesses and lower-income households grapple with higher borrowing costs. Supporters counter that prematurely loosening policy could re-anchor inflation expectations at an unacceptably high level.</p>
+
+  <p>Traders in federal-funds futures now price in only one quarter-point cut by year end, down from three as recently as February. Some strategists warn that yield-curve dynamics could become unstable if long-dated Treasury yields keep rising while the front end stays pinned by the Fed's hold.</p>
+</article>
+
+<!-- Manage prompts modal -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <header>
+      <h2>管理提示词</h2>
+      <span style="color:#9ca3af;font-size:12px">点★设为默认 · 拖动调整顺序</span>
+      <span class="grow"></span>
+      <button class="primary" id="addRow">+ 新增</button>
+    </header>
+    <div class="list">
+      <div class="prompt-row head">
+        <div>★</div>
+        <div>Shortcut</div>
+        <div>标题 / System Prompt</div>
+        <div>模型</div>
+        <div></div>
+        <div></div>
+      </div>
+      <div id="rows"></div>
+    </div>
+    <footer>
+      <button class="reset" id="importSample">+ 导入一批常用示例</button>
+      <div>
+        <button class="done" id="closeModal">完成</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+  // --- Default prompts (rich set) ---
+  const DEFAULT_PROMPTS = [
+    { id:"js300",    shortcut:"/js300",    title:"300字解释",          system:"用 300 字以内，解释这段文字的意思。语言简练，面向普通读者。",           model:"gpt-5-mini", default:true },
+    { id:"zh",       shortcut:"/zh",       title:"翻译为中文",         system:"将下面这段文字翻译成地道、自然的简体中文。",                                 model:"gpt-5-mini" },
+    { id:"en",       shortcut:"/en",       title:"翻译为英文",         system:"Translate the following passage into fluent, natural English.",              model:"gpt-5-mini" },
+    { id:"tldr",     shortcut:"/tldr",     title:"一句话总结",         system:"用一句话（不超过 40 字）总结这段文字的核心观点。",                           model:"gpt-5-mini" },
+    { id:"bullets",  shortcut:"/bullets",  title:"要点列表",           system:"将这段内容提炼成 3–5 条要点，每条不超过 30 字，使用无序列表。",             model:"gpt-5-mini" },
+    { id:"simple",   shortcut:"/eli5",     title:"像解释给小学生",     system:"请用小学五年级学生能听懂的语言，解释这段话在讲什么。可以用比喻。",           model:"gpt-5-mini" },
+    { id:"background", shortcut:"/bg",     title:"补充背景知识",       system:"补充理解这段话需要的背景知识（历史、术语、事件脉络），500 字以内。",         model:"gpt-5-mini" },
+    { id:"terms",    shortcut:"/terms",    title:"术语解释",           system:"列出这段文字里普通读者可能不认识的专业术语或人名，每个一句话解释。",        model:"gpt-5-mini" },
+    { id:"critic",   shortcut:"/critic",   title:"批判性分析",         system:"对这段文字做批判性分析：指出作者的立场、隐含假设、可能被忽略的反面证据。",   model:"gpt-5" },
+    { id:"counter",  shortcut:"/counter",  title:"反方观点",           system:"站在与这段文字作者相反的立场，写一段有力的反驳，300 字以内。",               model:"gpt-5" },
+    { id:"facts",    shortcut:"/facts",    title:"事实核查清单",       system:"从这段文字中提取出可验证的事实性陈述，并标注每一条可能需要核实的点。",       model:"gpt-5-mini" },
+    { id:"bias",     shortcut:"/bias",     title:"语气/偏见识别",      system:"分析这段文字的语气与潜在偏见：是中立、倾向性还是煽动性？给出具体证据。",     model:"gpt-5-mini" },
+    { id:"compare",  shortcut:"/compare",  title:"对比同类观点",       system:"这段观点与业界/学界其他主流观点相比如何？指出共识点和分歧点。",             model:"gpt-5" },
+    { id:"quote",    shortcut:"/quote",    title:"提取金句",           system:"从这段文字里挑出最值得引用的 1–3 句话，保留原文并在后面附一句短评。",        model:"gpt-5-mini" },
+    { id:"impl",     shortcut:"/impl",     title:"对我意味着什么",     system:"这段信息对一名普通投资者/普通读者意味着什么？给出 2–3 条可操作的思考。",      model:"gpt-5" },
+    { id:"qs",       shortcut:"/qs",       title:"该追问的问题",       system:"读完这段后，列出 5 个值得进一步追问的问题，帮助读者深入思考。",              model:"gpt-5-mini" },
+    { id:"nextread", shortcut:"/next",     title:"延伸阅读建议",       system:"基于这段内容的主题，推荐 3 本书 / 3 篇高质量文章方向（不必给具体链接）。",   model:"gpt-5-mini" },
+    { id:"rewrite",  shortcut:"/rewrite",  title:"改写更易读",         system:"把这段文字改写得更通俗、更顺畅，不丢失任何信息点。",                         model:"gpt-5-mini" },
+    { id:"note",     shortcut:"/note",     title:"做成笔记卡片",       system:"把这段内容整理成一张 Zettelkasten 风格的笔记：标题、要点、一句话精华、关联词。", model:"gpt-5-mini" }
+  ];
+
+  const STORAGE_KEY = "webai-preview-prompts-v1";
+
+  function loadPrompts() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(DEFAULT_PROMPTS);
+      return JSON.parse(raw);
+    } catch { return structuredClone(DEFAULT_PROMPTS); }
+  }
+  function savePrompts(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }
+
+  let PROMPTS = loadPrompts();
+
+  // --- Fake responses (fallback when user adds new prompts without fake data) ---
+  const FAKE = {
+    js300: "这段话在讲：美联储官员们释放了一个比较鹰派的信号——接下来的会议大概率会按兵不动，不急着降息。理由是最近的通胀数据比他们预期的更顽固，价格回落没那么快。这跟此前市场听到的「今年晚些时候可能还会继续降息」的口径不太一样，语气明显变紧。结果是市场把近期的降息预期往后挪，短端美债收益率反弹到了四个月高点。核心含义：通胀没被完全驯服，美联储宁愿多等等，也不愿意过早放松。",
+    zh: "美联储官员发出信号，他们倾向于在即将召开的会议上维持利率不变，因为近期的通胀数据表明，价格压力比政策制定者此前所期望的更具黏性。这种口径的转变，与此前暗示今年晚些时候将进一步放松政策的指引形成了反差。",
+    en: "Federal Reserve officials hinted they are inclined to hold rates steady at their upcoming meeting, as recent inflation readings suggest price pressures remain more persistent than policymakers had anticipated — a subtle but meaningful shift away from earlier dovish guidance.",
+    tldr: "通胀顽固 → 美联储近期不降息 → 市场调低降息预期。",
+    bullets: "• 美联储官员暗示即将到来的会议不会降息\n• 理由是 3 月通胀同比 3.1%，高于预期\n• 市场把降息预期从 3 次下调到 1 次\n• 两年期美债收益率升至四个月高点\n• Powell 周三讲话将被密切解读",
+    simple: "想象一下老师本来说「这学期可能让大家提早放学」，结果发现同学们作业还没做完，老师就改口说「先不提前放了，等做完再说」。美联储就是那个老师，降息就是提前放学，通胀就是没写完的作业。",
+    background: "要理解这段话，先知道几个背景：①美联储是美国的央行，掌管利率；②通胀目标定在 2%，目前 3.1% 还是偏高；③2024-2025 年美联储降息过几次，今年本来市场以为还会继续降；④「鹰派 vs 鸽派」是华尔街黑话，鹰派偏紧缩、鸽派偏宽松；⑤两年期美债收益率对利率预期极其敏感，是市场的「情绪温度计」。",
+    terms: "• sticky inflation（黏性通胀）：通胀一旦上去就不容易下来。\n• last mile（最后一公里）：从 3% 拉回 2% 这段最难的路。\n• hawkish pivot（鹰派转向）：政策立场变紧。\n• two-year Treasury yield（两年期美债收益率）：对利率预期最敏感的指标。\n• re-anchor inflation expectations（重新锚定通胀预期）：让公众相信未来通胀会稳定。",
+    critic: "这篇报道把「暂停降息」写得像理所当然的稳健选择，但至少有三点没讲透：①高利率对小企业和中低收入家庭的真实压力被一笔带过；②单月 CPI 波动不足以说明通胀「黏性」，样本偏短；③采用的完全是央行视角，缺少对劳动力市场数据的重新解读。整体上，作者默认了「宁紧勿松」框架，读者需要警觉。",
+    counter: "把通胀叫做「黏性」其实站不住脚。3.1% 的 CPI 很大程度来自住房和能源的滞后效应，剔除这两项后核心通胀早已接近目标。美联储继续按兵不动，真正的风险不是通胀反弹，而是信贷收紧、小企业违约上升、失业率被推高。等数据恶化再降息，通常就晚了。",
+    facts: "可核查事实：①多位地区联储主席周一在芝加哥发言 ②3 月 CPI 同比 3.1% ③两年期美债收益率升至四个月高点 ④Powell 周三发表讲话 ⑤联邦基金利率期货目前定价年内仅降息一次。建议核实发言原文与具体数据来源。",
+    bias: "语气整体偏「中立偏鹰」。用词如「hawkish pivot」「sticky」暗示了一个倾向性框架——把不降息当成理性共识；批评方只在第四段出现且篇幅短，显得是点缀。标题「Signal Pause」也预设了结论。属于典型的华尔街日报央行报道口径。",
+    compare: "与彭博和 FT 最近几篇报道一致：都强调通胀黏性。但与「The Economist」观点不同，该刊更强调高利率的滞后杀伤力。学界（Krugman、Summers）分歧更大：Summers 支持维持高利率，Krugman 认为现在降息代价更低。",
+    quote: "「The \"last mile\" of disinflation may require keeping policy restrictive for longer.」\n— 这句话浓缩了整篇的核心叙事，也是未来几个月决策者被反复引用的经典措辞。",
+    impl: "对普通读者 / 投资者：①短期内别赌降息行情，固定收益产品配置可以继续 ②若你有浮动利率房贷或小企业贷款，账单压力会再持续一段 ③股市中对利率敏感的板块（科技成长、REITs）短期仍将承压。",
+    qs: "1. 3.1% 的 CPI 里，哪几项贡献最大？\n2. 劳动力市场「仍然有韧性」具体看哪些指标？\n3. 若年底失业率升至 5%，美联储会改口吗？\n4. 市场为何从「3 次降息」一下跳到「1 次」？\n5. 长端收益率继续上行的风险到底有多大？",
+    nextread: "• 方向一：《The Courage to Act》—— Bernanke 讲央行如何面对通胀两难\n• 方向二：BIS 年度报告关于「最后一公里」的研究\n• 方向三：FT Alphaville 和 Jason Furman 在 X 上关于核心服务通胀的讨论",
+    rewrite: "美联储官员暗示，下次开会时他们可能会按住利率不动，因为最近的通胀数据还是有点顽固，降得不够快，比他们原来预想的要慢。这跟之前说「今年晚些时候可能继续降息」的口径明显不一样。",
+    note: "【标题】美联储释放鹰派暂停信号\n【要点】① 即将会议可能不降息 ② 通胀黏性超预期 ③ 市场重新定价\n【一句话精华】最后一公里的代价是：更长时间的紧缩。\n【关联词】#通胀黏性 #鹰派转向 #降息预期 #两年期美债"
+  };
+
+  function fakeFor(prompt) {
+    if (FAKE[prompt.id]) return FAKE[prompt.id];
+    // User-added prompt — generate a generic demo response
+    return `[演示] 这是一条针对「${prompt.title}」的模拟回答。真实扩展里会调用 ${prompt.model || "gpt-5-mini"}，根据 system prompt：\n\n「${prompt.system}」\n\n对你选中的那段话生成真实结果。`;
+  }
+
+  // --- Bubble ---
+  const bubble = document.getElementById("bubble");
+  let bubbleAnchor = null;
+
+  function renderBubble() {
+    bubble.innerHTML = "";
+    const starred = PROMPTS.find(p => p.default);
+    const ordered = starred ? [starred, ...PROMPTS.filter(p => p !== starred)] : PROMPTS.slice();
+    const shown = ordered.slice(0, 5);
+    shown.forEach(p => {
+      const btn = document.createElement("button");
+      btn.dataset.prompt = p.id;
+      btn.innerHTML = `${p.default ? '<span class="star">★</span>' : '<span style="width:12px;display:inline-block"></span>'}<span class="title">${escapeHtml(p.title)}</span><span class="sc">${escapeHtml(p.shortcut)}</span>`;
+      bubble.appendChild(btn);
+    });
+    if (ordered.length > shown.length) {
+      const more = document.createElement("button");
+      more.className = "more";
+      more.textContent = `+${ordered.length - shown.length} 更多 · 管理提示词`;
+      more.onclick = () => openModal();
+      bubble.appendChild(more);
+    }
+  }
+
+  function findBlock(node) {
+    while (node && node.nodeType !== 1) node = node.parentNode;
+    while (node && !["P","LI","BLOCKQUOTE","H1","H2","H3","H4","H5","H6","DT","DD","FIGCAPTION","TD","TH"].includes(node.tagName)) node = node.parentNode;
+    return node;
+  }
+
+  document.addEventListener("selectionchange", () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      bubble.classList.remove("show"); bubbleAnchor = null; return;
+    }
+    const range = sel.getRangeAt(0);
+    // Multi-paragraph selection: use the block containing the END of selection
+    // so the card is inserted after the last selected paragraph.
+    let para = findBlock(range.endContainer);
+    if (!para) para = findBlock(range.commonAncestorContainer);
+    if (!para) {
+      // Fallback: find any <p> inside the range
+      const art = document.getElementById("art");
+      const paras = Array.from(art.querySelectorAll("p,li,blockquote,h1,h2,h3,h4,h5,h6,dt,dd,figcaption,td,th"));
+      para = paras.reverse().find(p => range.intersectsNode(p));
+    }
+    if (!para || !document.getElementById("art").contains(para)) {
+      bubble.classList.remove("show"); return;
+    }
+    const rect = range.getBoundingClientRect();
+    const GAP = 12;
+    const bubbleW = 200;
+    const bubbleH = 260;
+    // Try right of selection; if not enough space, flip to left
+    let left = rect.right + GAP + window.scrollX;
+    if (left + bubbleW > window.scrollX + window.innerWidth - 12) {
+      left = rect.left - bubbleW - GAP + window.scrollX;
+    }
+    let top = rect.top + window.scrollY - 8;
+    if (top + bubbleH > window.scrollY + window.innerHeight - 12) {
+      top = Math.max(window.scrollY + 12, rect.bottom + window.scrollY - bubbleH);
+    }
+    bubble.style.left = left + "px";
+    bubble.style.top  = top + "px";
+    bubble.classList.add("show");
+    bubbleAnchor = para;
+  });
+
+  bubble.addEventListener("mousedown", e => e.preventDefault());
+  bubble.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-prompt]");
+    if (!btn || !bubbleAnchor) return;
+    const p = PROMPTS.find(x => x.id === btn.dataset.prompt);
+    if (!p) return;
+    bubble.classList.remove("show");
+    renderCardInto(p, bubbleAnchor);
+  });
+
+  // --- Card rendering ---
+  function renderCardInto(prompt, anchor) {
+    document.querySelectorAll(".ai-card").forEach(n => n.remove());
+    const full = fakeFor(prompt);
+    const card = document.createElement("div");
+    card.className = "ai-card";
+    card.innerHTML = `
+      <div class="head">
+        <span class="badge">AI</span>
+        <span>${prompt.title} · ${prompt.shortcut}</span>
+        <span class="spacer"></span>
+        <button class="copy">复制</button>
+        <button class="close">×</button>
+      </div>
+      <div class="body"><span class="cursor"></span></div>
+      <div class="foot"><span>${prompt.model || "gpt-5-mini"}</span><span class="time">流式中…</span></div>
+    `;
+    anchor.insertAdjacentElement("afterend", card);
+    const body = card.querySelector(".body");
+    const time = card.querySelector(".time");
+    const started = performance.now();
+    let i = 0;
+    const iv = setInterval(() => {
+      i += Math.max(1, Math.round(Math.random() * 3));
+      if (i >= full.length) {
+        i = full.length;
+        body.textContent = full;
+        clearInterval(iv);
+        time.textContent = `用时 ${Math.round(performance.now()-started)} ms · ${full.length} 字`;
+        return;
+      }
+      body.innerHTML = "";
+      body.appendChild(document.createTextNode(full.slice(0, i)));
+      const c = document.createElement("span");
+      c.className = "cursor";
+      body.appendChild(c);
+    }, 16);
+    card.querySelector(".close").onclick = () => card.remove();
+    card.querySelector(".copy").onclick = e => {
+      navigator.clipboard.writeText(full);
+      e.target.textContent = "已复制";
+      setTimeout(() => e.target.textContent = "复制", 1200);
+    };
+  }
+
+  // --- Modal ---
+  const mask = document.getElementById("mask");
+  const rowsEl = document.getElementById("rows");
+  document.getElementById("manageBtn").onclick = openModal;
+  document.getElementById("closeModal").onclick = closeModal;
+  document.getElementById("addRow").onclick = () => {
+    PROMPTS.push({
+      id: "p_" + Date.now(),
+      shortcut: "/new",
+      title: "新提示词",
+      system: "在这里写 system prompt…",
+      model: "gpt-5-mini"
+    });
+    savePrompts(PROMPTS); renderRows(); renderBubble();
+  };
+  document.getElementById("importSample").onclick = () => {
+    const existingIds = new Set(PROMPTS.map(p => p.id));
+    DEFAULT_PROMPTS.forEach(p => {
+      if (!existingIds.has(p.id)) PROMPTS.push(structuredClone(p));
+    });
+    savePrompts(PROMPTS); renderRows(); renderBubble();
+  };
+  document.getElementById("resetBtn").onclick = () => {
+    if (confirm("确定重置为默认提示词集合？你自定义的会被清除。")) {
+      PROMPTS = structuredClone(DEFAULT_PROMPTS);
+      savePrompts(PROMPTS); renderRows(); renderBubble();
+    }
+  };
+  mask.addEventListener("click", e => { if (e.target === mask) closeModal(); });
+
+  function openModal() { mask.classList.add("show"); renderRows(); }
+  function closeModal() { mask.classList.remove("show"); }
+
+  function renderRows() {
+    rowsEl.innerHTML = "";
+    PROMPTS.forEach((p, idx) => {
+      const row = document.createElement("div");
+      row.className = "prompt-row";
+      row.draggable = true;
+      row.dataset.idx = idx;
+      row.innerHTML = `
+        <button class="star-btn ${p.default ? 'on' : ''}" title="设为默认">★</button>
+        <input type="text" class="sc-input" value="${escapeAttr(p.shortcut)}" placeholder="/cmd">
+        <div>
+          <input type="text" value="${escapeAttr(p.title)}" placeholder="标题" style="margin-bottom:4px">
+          <textarea placeholder="system prompt">${escapeHtml(p.system)}</textarea>
+        </div>
+        <input type="text" value="${escapeAttr(p.model || 'gpt-5-mini')}" placeholder="model">
+        <div class="drag" title="拖动调整顺序">⋮⋮</div>
+        <button class="del" title="删除">✕</button>
+      `;
+      const [starBtn, scInput, titleWrap, modelInput, dragHandle, delBtn] = row.children;
+      const titleInput = titleWrap.querySelector("input");
+      const sysInput = titleWrap.querySelector("textarea");
+
+      starBtn.onclick = () => {
+        PROMPTS.forEach(x => x.default = false);
+        p.default = true;
+        savePrompts(PROMPTS); renderRows(); renderBubble();
+      };
+      scInput.oninput = () => { p.shortcut = scInput.value; savePrompts(PROMPTS); renderBubble(); };
+      titleInput.oninput = () => { p.title = titleInput.value; savePrompts(PROMPTS); renderBubble(); };
+      sysInput.oninput = () => { p.system = sysInput.value; savePrompts(PROMPTS); };
+      modelInput.oninput = () => { p.model = modelInput.value; savePrompts(PROMPTS); };
+      delBtn.onclick = () => {
+        PROMPTS.splice(idx, 1);
+        savePrompts(PROMPTS); renderRows(); renderBubble();
+      };
+
+      // drag reorder
+      row.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text/plain", idx);
+        row.style.opacity = "0.4";
+      });
+      row.addEventListener("dragend", () => row.style.opacity = "1");
+      row.addEventListener("dragover", e => e.preventDefault());
+      row.addEventListener("drop", e => {
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData("text/plain"));
+        const to = idx;
+        if (from === to) return;
+        const [moved] = PROMPTS.splice(from, 1);
+        PROMPTS.splice(to, 0, moved);
+        savePrompts(PROMPTS); renderRows(); renderBubble();
+      });
+
+      rowsEl.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+  function escapeAttr(s) { return escapeHtml(s).replace(/"/g,"&quot;"); }
+
+  renderBubble();
+</script>
+
+</body>
+</html>

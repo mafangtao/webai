@@ -1,0 +1,63 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #f6f7f9; color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+.wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+header h1 { margin: 0; font-size: 22px; }
+header .sub { color: #6b7280; margin: 6px 0 24px; }
+.card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 18px 20px; margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card h2 { margin: 0 0 12px; font-size: 15px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.row label { width: 90px; color: #374151; }
+.row input[type=text], .row input[type=password] {
+  flex: 1; min-width: 260px;
+  padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;
+}
+button {
+  border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 13px;
+}
+button.primary { background: #2563eb; color: #fff; }
+button.ghost { background: #f3f4f6; color: #111; }
+button:hover { filter: brightness(0.97); }
+button.primary:hover { filter: brightness(1.1); }
+.muted { color: #6b7280; font-size: 12px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tab {
+  background: #f3f4f6; color: #374151; padding: 6px 12px; border-radius: 6px;
+}
+.tab.active { background: #111; color: #fff; }
+.pane { display: none; }
+.pane.active { display: block; }
+.note { color: #6b7280; font-size: 12px; margin: 0 0 10px; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.prompt-row {
+  display: grid;
+  grid-template-columns: 36px 110px 1fr 120px 36px 36px;
+  gap: 10px; align-items: start;
+  padding: 10px 0; border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.prompt-row.head { font-weight: 600; color: #6b7280; border-bottom: 2px solid #e5e7eb; padding-top:0; }
+.prompt-row input, .prompt-row textarea {
+  width: 100%; padding: 6px 8px; border: 1px solid #e5e7eb;
+  border-radius: 6px; font-size: 13px; font-family: inherit;
+}
+.prompt-row textarea { min-height: 34px; line-height: 1.45; resize: vertical; }
+.prompt-row .sc-input { font-family: ui-monospace, Menlo, monospace; }
+.prompt-row .star-btn {
+  background: none; font-size: 16px; padding: 4px; color: #d1d5db;
+}
+.prompt-row .star-btn.on { color: #f59e0b; }
+.prompt-row .del { background: #fee2e2; color: #b91c1c; }
+.prompt-row .drag { color: #9ca3af; text-align: center; cursor: grab; user-select: none; padding-top: 6px; }
+.prompt-row .title-input { margin-bottom: 4px; }
+.prompt-row .model-slot select { width: 100%; padding: 6px 6px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; background: #fff; }
+select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; }
+.row a { color: #2563eb; }

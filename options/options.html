@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>WebAI — 设置</title>
+<link rel="stylesheet" href="options.css" />
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>WebAI 设置</h1>
+    <p class="sub">选中网页文字 → 气泡/右键菜单 → 流式 AI 分析</p>
+  </header>
+
+  <section class="card">
+    <h2>服务商</h2>
+    <div class="tabs">
+      <button class="tab" data-prov="openrouter">OpenRouter（海外聚合）</button>
+      <button class="tab" data-prov="bailian">阿里云百炼（国内）</button>
+    </div>
+
+    <div class="pane" data-pane="openrouter">
+      <p class="note">
+        <a href="https://openrouter.ai" target="_blank">OpenRouter</a> 聚合 OpenAI / Anthropic / Google 等；有免费模型但对 max_tokens 有余额校验。
+      </p>
+      <div class="row">
+        <button id="loginOR" class="primary">使用 OpenRouter 登录</button>
+        <button id="logoutOR" class="ghost">清除</button>
+        <span id="orState" class="muted"></span>
+      </div>
+      <div class="row">
+        <label>OpenRouter Key</label>
+        <input id="orKey" type="password" placeholder="sk-or-v1-...  也可到 openrouter.ai/keys 生成后手动粘贴" />
+        <button id="saveOR" class="ghost">保存</button>
+        <button id="testOR" class="ghost">测试</button>
+      </div>
+      <div id="orTest" class="muted"></div>
+    </div>
+
+    <div class="pane" data-pane="bailian">
+      <p class="note">
+        阿里云 <a href="https://bailian.console.aliyun.com/" target="_blank">百炼（DashScope）</a> 提供通义千问全系 + DeepSeek。
+        到 <a href="https://bailian.console.aliyun.com/?apiKey=1" target="_blank">控制台 → API-KEY</a> 生成后粘贴。
+        <b>qwen-turbo / qwen3-turbo 有免费额度。</b>
+      </p>
+      <div class="row">
+        <label>百炼 API Key</label>
+        <input id="baiKey" type="password" placeholder="sk-..." />
+        <button id="saveBai" class="primary">保存</button>
+        <button id="testBai" class="ghost">测试</button>
+        <button id="logoutBai" class="ghost">清除</button>
+        <span id="baiState" class="muted"></span>
+      </div>
+      <div id="baiTest" class="muted"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>默认模型</h2>
+    <div class="row">
+      <select id="defaultModel" style="min-width:360px"></select>
+      <label style="width:auto">
+        <input type="checkbox" id="onlyFree" /> 只看免费模型
+      </label>
+      <button id="refreshModels" class="ghost">刷新模型列表</button>
+      <span id="modelsState" class="muted"></span>
+    </div>
+    <p class="note">模型列表来自当前选中的服务商。提示词未指定模型时使用此默认值。</p>
+  </section>
+
+  <section class="card">
+    <h2>提示词</h2>
+    <div class="toolbar">
+      <button id="addRow" class="primary">+ 新增</button>
+      <button id="resetPrompts" class="ghost">重置为默认</button>
+      <span class="muted">点 ★ 设为默认；拖动 ⋮⋮ 调整顺序；模型留空 = 继承默认</span>
+    </div>
+    <div class="prompt-row head">
+      <div>★</div>
+      <div>Shortcut</div>
+      <div>标题 / System Prompt</div>
+      <div>模型</div>
+      <div></div>
+      <div></div>
+    </div>
+    <div id="rows"></div>
+  </section>
+</div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

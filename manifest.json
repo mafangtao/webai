@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "WebAI — 选中即问",
+  "version": "0.1.0",
+  "description": "选中网页文字，气泡工具调用 AI 分析，结果插入段落下方。",
+  "permissions": ["contextMenus", "storage", "scripting", "activeTab", "identity"],
+  "host_permissions": [
+    "https://openrouter.ai/*",
+    "https://dashscope.aliyuncs.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options/options.html",
+  "action": {
+    "default_title": "WebAI 设置",
+    "default_popup": "options/popup.html"
+  }
+}
