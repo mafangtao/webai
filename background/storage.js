@@ -1,5 +1,5 @@
 export const DEFAULT_PROMPTS = [
-  { id: "js300",    shortcut: "/js300",   title: "300字解释",      system: "用 300 字以内，解释这段文字的意思。语言简练，面向普通读者。", model: "", default: true },
+  { id: "js300",    shortcut: "/js300",   title: "300字解释",      system: "用 300 字以内解释这段文字的意思。\n\n要求：\n- 用 Markdown 输出，必须有真正的换行（\\n）。\n- 先用 1 段话给出核心结论。\n- 然后用无序列表 (- ) 列出 2~4 条关键点，每条独立一行。\n- 关键术语用 **加粗**。\n- 不要把多条要点挤在同一行用①②或分号分隔。", model: "", default: true },
   { id: "zh",       shortcut: "/zh",      title: "翻译为中文",     system: "将下面这段文字翻译成地道、自然的简体中文。", model: "" },
   { id: "en",       shortcut: "/en",      title: "翻译为英文",     system: "Translate the following passage into fluent, natural English.", model: "" },
   { id: "tldr",     shortcut: "/tldr",    title: "一句话总结",     system: "用一句话（不超过 40 字）总结这段文字的核心观点。", model: "" },
@@ -42,7 +42,13 @@ const DEFAULT_CONFIG = {
   },
   defaultModel: "",                       // e.g. "openai/gpt-4o-mini" or "qwen-turbo"
   prompts: DEFAULT_PROMPTS,
-  availableModels: []                      // cached list for currently-active provider
+  availableModels: [],                     // cached list for currently-active provider
+  backend: {
+    url: "http://localhost:8080",
+    token: "",
+    lastCategory: "",                      // remembered for next save
+    categories: []                         // cached [{id,name,icon}]
+  }
 };
 
 function migrate(old) {
@@ -77,6 +83,7 @@ export async function getConfig() {
   };
   merged.auth.openrouter = { ...DEFAULT_CONFIG.auth.openrouter, ...(migrated.auth?.openrouter || {}) };
   merged.auth.bailian = { ...DEFAULT_CONFIG.auth.bailian, ...(migrated.auth?.bailian || {}) };
+  merged.backend = { ...DEFAULT_CONFIG.backend, ...(migrated.backend || {}) };
 
   if ((merged._v || 0) < STORAGE_VERSION) {
     // one-time cleanup: nuke any residual model ids in prompts (they might be from earlier "gpt-5-mini" defaults)
@@ -98,6 +105,9 @@ export async function setConfig(patch) {
       openrouter: { ...cur.auth.openrouter, ...(patch.auth.openrouter || {}) },
       bailian: { ...cur.auth.bailian, ...(patch.auth.bailian || {}) }
     };
+  }
+  if (patch.backend) {
+    next.backend = { ...cur.backend, ...patch.backend };
   }
   await chrome.storage.local.set({ config: next });
   return next;

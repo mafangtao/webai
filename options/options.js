@@ -9,9 +9,41 @@ async function init() {
   bindTabs();
   renderOpenRouter();
   renderBailian();
+  renderBackend();
   await loadModels(false);
   renderDefaultModel();
   renderRows();
+}
+
+function renderBackend() {
+  const url = document.getElementById("beUrl");
+  const tok = document.getElementById("beToken");
+  const state = document.getElementById("beState");
+  url.value = cfg.backend.url || "";
+  tok.value = cfg.backend.token || "";
+  document.getElementById("beSave").onclick = async () => {
+    cfg = await setConfig({ backend: { url: url.value.trim(), token: tok.value.trim() } });
+    state.textContent = "✓ 已保存";
+    state.style.color = "#059669";
+  };
+  document.getElementById("beTest").onclick = async () => {
+    state.textContent = "测试中…"; state.style.color = "#6b7280";
+    const r = await chrome.runtime.sendMessage({ type: "WEBAI_TEST_BACKEND" });
+    state.textContent = r.message;
+    state.style.color = r.ok ? "#059669" : "#b91c1c";
+  };
+  document.getElementById("beRefreshCats").onclick = async () => {
+    state.textContent = "拉取分类…"; state.style.color = "#6b7280";
+    const r = await chrome.runtime.sendMessage({ type: "WEBAI_FETCH_CATEGORIES" });
+    if (r.ok) {
+      cfg = await getConfig();
+      state.textContent = `✓ 已缓存 ${r.categories.length} 个分类: ${r.categories.map(c=>c.name).join(", ").slice(0,200)}`;
+      state.style.color = "#059669";
+    } else {
+      state.textContent = "失败: " + r.error;
+      state.style.color = "#b91c1c";
+    }
+  };
 }
 
 function bindTabs() {

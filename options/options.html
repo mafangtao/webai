@@ -69,6 +69,26 @@
   </section>
 
   <section class="card">
+    <h2>笔记后端</h2>
+    <p class="note">
+      AI 生成结果可保存到本地的 <code>notes-golang-backend</code>。
+      在控制台获取 Bearer Token，并启动服务（默认 <code>:8080</code>）。
+    </p>
+    <div class="row">
+      <label>服务器 URL</label>
+      <input id="beUrl" type="text" placeholder="http://localhost:8080" />
+    </div>
+    <div class="row">
+      <label>Bearer Token</label>
+      <input id="beToken" type="password" placeholder="sk-..." />
+      <button id="beSave" class="primary">保存</button>
+      <button id="beTest" class="ghost">测试连接</button>
+      <button id="beRefreshCats" class="ghost">刷新分类列表</button>
+    </div>
+    <div id="beState" class="muted"></div>
+  </section>
+
+  <section class="card">
     <h2>提示词</h2>
     <div class="toolbar">
       <button id="addRow" class="primary">+ 新增</button>

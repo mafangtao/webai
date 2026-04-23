@@ -6,7 +6,10 @@
   "permissions": ["contextMenus", "storage", "scripting", "activeTab", "identity"],
   "host_permissions": [
     "https://openrouter.ai/*",
-    "https://dashscope.aliyuncs.com/*"
+    "https://dashscope.aliyuncs.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://localhost:8080/*"
   ],
   "background": {
     "service_worker": "background/service_worker.js",

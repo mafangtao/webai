@@ -1,6 +1,7 @@
 import { getConfig } from "./storage.js";
 import { streamChat } from "./openai_client.js";
 import { loginOpenRouter, logout, fetchModels, testApi } from "./auth.js";
+import { testBackend, fetchCategories, createCategory, saveItem } from "./notes.js";
 
 const PARENT_ID = "webai-root";
 
@@ -121,4 +122,45 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     testApi(msg.provider).then(r => sendResponse(r));
     return true;
   }
+  if (msg?.type === "WEBAI_TEST_BACKEND") {
+    testBackend().then(r => sendResponse(r));
+    return true;
+  }
+  if (msg?.type === "WEBAI_FETCH_CATEGORIES") {
+    fetchCategories().then(cats => sendResponse({ ok: true, categories: cats }))
+      .catch(e => sendResponse({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
+  if (msg?.type === "WEBAI_CREATE_CATEGORY") {
+    createCategory(msg.name).then(cat => sendResponse({ ok: true, category: cat }))
+      .catch(e => sendResponse({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
+  if (msg?.type === "WEBAI_SAVE_ITEM") {
+    saveItem(msg.payload).then(r => sendResponse(r))
+      .catch(e => sendResponse({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
+  if (msg?.type === "WEBAI_RUN_ONCE") {
+    runPromptOnce(msg.shortcut, msg.text).then(r => sendResponse(r))
+      .catch(e => sendResponse({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
 });
+
+async function runPromptOnce(shortcut, text) {
+  const cfg = await getConfig();
+  const prompt = cfg.prompts.find(p => p.shortcut === shortcut);
+  if (!prompt) return { ok: false, error: `未找到提示词 ${shortcut}` };
+  const model = prompt.model || cfg.defaultModel;
+  if (!model) return { ok: false, error: "未选择默认模型" };
+  let out = "";
+  try {
+    for await (const chunk of streamChat({ model, system: prompt.system, user: text })) {
+      out += chunk;
+    }
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+  return { ok: true, text: out.trim() };
+}
